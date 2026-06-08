@@ -146,7 +146,7 @@ export default function HelpModal({ defaultTab = 'INTRO', onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 3000 }}>
       <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '850px', width: '90%', display: 'flex', flexDirection: 'column', minHeight: '450px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '15px', marginBottom: '20px' }}>
           <h2 style={{ margin: 0 }}>📖 Centre d'Aide & Documentation</h2>
