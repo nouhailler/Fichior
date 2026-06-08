@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import archiver from 'archiver';
 import mime from 'mime-types';
 import os from 'os';
+import { exec } from 'child_process';
 
 import { getDb } from './db.js';
 import { indexFile, removeFileFromIndex, indexDirectory, computeFileHash } from './indexer.js';
@@ -612,11 +613,17 @@ app.get('*', (req, res) => {
 
 // Start Server & Watchdogs
 app.listen(PORT, async () => {
-  console.log(`Fichior Server active at http://localhost:${PORT}`);
+  const url = `http://localhost:${PORT}`;
+  console.log(`Fichior Server active at ${url}`);
+  
   try {
     await initWatchdog();
+    
+    // Automatically open browser on start
+    const startCommand = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+    exec(`${startCommand} ${url}`);
   } catch (err) {
-    console.error('Failed to initialize watchdog:', err);
+    console.error('Failed to initialize watchdog or open browser:', err);
   }
 }).on('error', (err) => {
   console.error('Failed to start server:', err);

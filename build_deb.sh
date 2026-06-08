@@ -55,7 +55,7 @@ Name=Fichior
 Comment=Gestionnaire de fichiers intelligent
 Exec=fichior
 Icon=/usr/share/pixmaps/fichior.png
-Terminal=true
+Terminal=false
 Type=Application
 Categories=System;Utility;
 EOF
