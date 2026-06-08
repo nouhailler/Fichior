@@ -1,13 +1,15 @@
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { fileURLToPath } from 'url';
+import os from 'os';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const versionsDir = path.join(__dirname, '.fichior', 'versions');
+const versionsDir = path.join(os.homedir(), '.fichior', 'versions');
 
-// Ensure the versions directory exists
-await fs.mkdir(versionsDir, { recursive: true });
+// Ensure the versions directory exists synchronously
+if (!fsSync.existsSync(versionsDir)) {
+  fsSync.mkdirSync(versionsDir, { recursive: true });
+}
 
 function getHash(str) {
   return crypto.createHash('md5').update(str).digest('hex');

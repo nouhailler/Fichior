@@ -1,15 +1,21 @@
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'fs';
+import os from 'os';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.join(__dirname, 'fichior.db');
+const userDataDir = path.join(os.homedir(), '.fichior');
+const dbPath = path.join(userDataDir, 'fichior.db');
 
 let db = null;
 
 export async function getDb() {
   if (db) return db;
+
+  // Ensure the user data directory exists
+  if (!fs.existsSync(userDataDir)) {
+    fs.mkdirSync(userDataDir, { recursive: true });
+  }
 
   db = await open({
     filename: dbPath,

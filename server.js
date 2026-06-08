@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import archiver from 'archiver';
 import mime from 'mime-types';
+import os from 'os';
 
 import { getDb } from './db.js';
 import { indexFile, removeFileFromIndex, indexDirectory, computeFileHash } from './indexer.js';
@@ -26,7 +27,7 @@ app.use(express.static(path.join(__dirname, 'dist')));
 // Helper to sanitize paths
 function resolveHome(filepath) {
   if (filepath.startsWith('~')) {
-    return path.join(process.env.HOME || '/home/homardsheriff', filepath.slice(1));
+    return path.join(os.homedir(), filepath.slice(1));
   }
   return path.resolve(filepath);
 }
@@ -612,5 +613,12 @@ app.get('*', (req, res) => {
 // Start Server & Watchdogs
 app.listen(PORT, async () => {
   console.log(`Fichior Server active at http://localhost:${PORT}`);
-  await initWatchdog();
+  try {
+    await initWatchdog();
+  } catch (err) {
+    console.error('Failed to initialize watchdog:', err);
+  }
+}).on('error', (err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
 });

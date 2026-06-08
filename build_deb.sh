@@ -10,6 +10,12 @@ mkdir -p "$BUILD_DIR/usr/bin"
 mkdir -p "$BUILD_DIR/usr/share/pixmaps"
 mkdir -p "$BUILD_DIR/usr/share/applications"
 
+# Ensure dist directory exists
+if [ ! -d "dist" ]; then
+  echo "Error: 'dist' directory not found. Please run 'npm run build' first."
+  exit 1
+fi
+
 # 1. Create Control file
 cat << 'EOF' > "$BUILD_DIR/DEBIAN/control"
 Package: fichior
@@ -55,7 +61,7 @@ Categories=System;Utility;
 EOF
 
 # 5. Copy files (excluding node_modules, hidden files, git databases)
-cp -r db.js index.html indexer.js natural_language.js package.json server.js versions.js watchdog.js dist/ "$BUILD_DIR/opt/fichior/"
+cp -r db.js index.html indexer.js natural_language.js package.json package-lock.json server.js versions.js watchdog.js dist/ "$BUILD_DIR/opt/fichior/"
 
 # Copy icon image to pixmaps folder
 cp fichior_icon.png "$BUILD_DIR/usr/share/pixmaps/fichior.png"

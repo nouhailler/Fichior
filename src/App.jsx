@@ -3,6 +3,8 @@ import QuickLook from './components/QuickLook.jsx';
 import RenameModal from './components/RenameModal.jsx';
 import DuplicateFinder from './components/DuplicateFinder.jsx';
 import HelpModal from './components/HelpModal.jsx';
+import OnboardingModal from './components/OnboardingModal.jsx';
+import SettingsModal from './components/SettingsModal.jsx';
 
 export default function App() {
   // Explorer state
@@ -26,6 +28,11 @@ export default function App() {
   const [showWatchdogModal, setShowWatchdogModal] = useState(false);
   const [showSmartFolderModal, setShowSmartFolderModal] = useState(false);
   
+  // Settings & Onboarding state
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+
   // Help Modal
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [helpTab, setHelpTab] = useState('INTRO');
@@ -55,6 +62,14 @@ export default function App() {
 
   // Indexing status message
   const [indexingMsg, setIndexingMsg] = useState('');
+
+  // Onboarding auto-run check
+  useEffect(() => {
+    const onboarded = localStorage.getItem('fichior_onboarded');
+    if (!onboarded) {
+      setShowOnboarding(true);
+    }
+  }, []);
 
   // Fetch file list
   const fetchFiles = async () => {
@@ -487,8 +502,11 @@ export default function App() {
           </ul>
         </div>
 
-        <div style={{ marginTop: 'auto' }}>
-          <button className="btn btn-primary" style={{ width: '100%', marginBottom: '15px' }} onClick={() => triggerHelp('INTRO')}>
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <button className="btn" style={{ justifyContent: 'center' }} onClick={() => setShowSettingsModal(true)}>
+            ⚙️ Paramètres
+          </button>
+          <button className="btn btn-primary" style={{ justifyContent: 'center' }} onClick={() => triggerHelp('INTRO')}>
             📖 Aide Générale
           </button>
           <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
@@ -559,44 +577,97 @@ export default function App() {
               </div>
             </div>
 
-            {/* Folder Grid */}
-            <div className="files-grid">
-              {files.map((file, idx) => {
-                const isSelected = multiSelect.includes(file.path);
-                const isDir = file.type === 'directory';
-                const fileIcon = isDir ? '📁' : file.type.startsWith('image/') ? '🖼️' : file.type.startsWith('audio/') ? '🎵' : file.type.startsWith('video/') ? '🎥' : file.ext === '.pdf' ? '📕' : '📄';
+            {/* Folder Layout (Grid or List View) */}
+            {viewMode === 'grid' ? (
+              <div className="files-grid">
+                {files.map((file, idx) => {
+                  const isSelected = multiSelect.includes(file.path);
+                  const isDir = file.type === 'directory';
+                  const fileIcon = isDir ? '📁' : file.type.startsWith('image/') ? '🖼️' : file.type.startsWith('audio/') ? '🎵' : file.type.startsWith('video/') ? '🎥' : file.ext === '.pdf' ? '📕' : '📄';
 
-                return (
-                  <div
-                    key={idx}
-                    className={`file-card ${isSelected ? 'selected' : ''}`}
-                    onClick={(e) => handleFileClick(file, e)}
-                    onDoubleClick={() => {
-                      if (isDir) {
-                        setCurrentDir(file.path);
-                        setSelectedFile(null);
-                        setMultiSelect([]);
-                      } else {
-                        setSelectedFile(file);
-                        setShowQuickLook(true);
-                      }
-                    }}
-                  >
-                    <div className="file-icon">{fileIcon}</div>
-                    <div className="file-name" title={file.name}>{file.name}</div>
-                    {!isDir && <div className="file-size">{(file.size / (1024 * 1024)).toFixed(2)} Mo</div>}
+                  return (
+                    <div
+                      key={idx}
+                      className={`file-card ${isSelected ? 'selected' : ''}`}
+                      onClick={(e) => handleFileClick(file, e)}
+                      onDoubleClick={() => {
+                        if (isDir) {
+                          setCurrentDir(file.path);
+                          setSelectedFile(null);
+                          setMultiSelect([]);
+                        } else {
+                          setSelectedFile(file);
+                          setShowQuickLook(true);
+                        }
+                      }}
+                    >
+                      <div className="file-icon">{fileIcon}</div>
+                      <div className="file-name" title={file.name}>{file.name}</div>
+                      {!isDir && <div className="file-size">{(file.size / (1024 * 1024)).toFixed(2)} Mo</div>}
 
-                    <div className="file-tags">
-                      {file.tags && file.tags.map((tag, tIdx) => (
-                        <span key={tIdx} className="tag-badge" style={{ backgroundColor: file.tagColors[tIdx] || '#3b82f6' }}>
-                          #{tag}
-                        </span>
-                      ))}
+                      <div className="file-tags">
+                        {file.tags && file.tags.map((tag, tIdx) => (
+                          <span key={tIdx} className="tag-badge" style={{ backgroundColor: file.tagColors[tIdx] || '#3b82f6' }}>
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <table className="files-list-table">
+                <thead>
+                  <tr>
+                    <th>Nom</th>
+                    <th>Taille</th>
+                    <th>Type</th>
+                    <th>Dernière modification</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {files.map((file, idx) => {
+                    const isSelected = multiSelect.includes(file.path);
+                    const isDir = file.type === 'directory';
+                    const fileIcon = isDir ? '📁' : file.type.startsWith('image/') ? '🖼️' : file.type.startsWith('audio/') ? '🎵' : file.type.startsWith('video/') ? '🎥' : file.ext === '.pdf' ? '📕' : '📄';
+
+                    return (
+                      <tr
+                        key={idx}
+                        className={`files-list-row ${isSelected ? 'selected' : ''}`}
+                        onClick={(e) => handleFileClick(file, e)}
+                        onDoubleClick={() => {
+                          if (isDir) {
+                            setCurrentDir(file.path);
+                            setSelectedFile(null);
+                            setMultiSelect([]);
+                          } else {
+                            setSelectedFile(file);
+                            setShowQuickLook(true);
+                          }
+                        }}
+                      >
+                        <td>
+                          <div className="files-list-name-col">
+                            <span style={{ fontSize: '18px' }}>{fileIcon}</span>
+                            <span title={file.name}>{file.name}</span>
+                            {file.tags && file.tags.map((tag, tIdx) => (
+                              <span key={tIdx} className="tag-badge" style={{ backgroundColor: file.tagColors[tIdx] || '#3b82f6', fontSize: '9px', marginLeft: '4px' }}>
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td>{isDir ? '--' : `${(file.size / (1024 * 1024)).toFixed(2)} Mo`}</td>
+                        <td style={{ color: 'var(--text-muted)' }}>{file.type}</td>
+                        <td style={{ color: 'var(--text-muted)' }}>{new Date(file.mtime).toLocaleString()}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
 
           {/* Right Inspector Details */}
@@ -751,6 +822,23 @@ export default function App() {
         <HelpModal
           defaultTab={helpTab}
           onClose={() => setShowHelpModal(false)}
+        />
+      )}
+
+      {/* Onboarding Tour */}
+      {showOnboarding && (
+        <OnboardingModal
+          onClose={() => setShowOnboarding(false)}
+        />
+      )}
+
+      {/* Settings Panel */}
+      {showSettingsModal && (
+        <SettingsModal
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          onReplayOnboarding={() => setShowOnboarding(true)}
+          onClose={() => setShowSettingsModal(false)}
         />
       )}
 
