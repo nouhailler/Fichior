@@ -153,6 +153,14 @@ export default function App() {
   // Keyboard Navigation & Spacebar listener
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Avoid keyboard navigation if an input or textarea is focused
+      if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
+        if (e.key === 'Escape') {
+          document.activeElement.blur();
+        }
+        return;
+      }
+
       // Focus mode toggle (Ctrl + Space or Ctrl + F)
       if (e.ctrlKey && (e.key === ' ' || e.key === 'f')) {
         e.preventDefault();
@@ -186,8 +194,37 @@ export default function App() {
         return;
       }
 
+      // Explorer Keyboard Navigation
+      if (files.length > 0) {
+        const currentIndex = selectedFile ? files.findIndex(f => f.path === selectedFile.path) : -1;
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const nextIndex = Math.min(files.length - 1, currentIndex + 1);
+          setSelectedFile(files[nextIndex]);
+          setMultiSelect([files[nextIndex].path]);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const nextIndex = Math.max(0, currentIndex - 1);
+          setSelectedFile(files[nextIndex]);
+          setMultiSelect([files[nextIndex].path]);
+        } else if (e.key === 'Enter' && selectedFile) {
+          e.preventDefault();
+          if (selectedFile.type === 'directory') {
+            setCurrentDir(selectedFile.path);
+            setSelectedFile(null);
+            setMultiSelect([]);
+          } else {
+            setShowQuickLook(true);
+          }
+        } else if (e.key === 'Backspace' && !e.ctrlKey) {
+          e.preventDefault();
+          navigateUp();
+        }
+      }
+
       // Spacebar for Quick Look
-      if (e.key === ' ' && selectedFile && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+      if (e.key === ' ' && selectedFile) {
         e.preventDefault();
         setShowQuickLook(true);
       }
@@ -195,7 +232,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedFile, focusMode, focusResults, focusSelectedIndex]);
+  }, [selectedFile, focusMode, focusResults, focusSelectedIndex, files, currentDir]);
 
   // Handle single file click
   const handleFileClick = (file, e) => {

@@ -44,7 +44,9 @@ chmod 755 "$BUILD_DIR/DEBIAN/postinst"
 cat << 'EOF' > "$BUILD_DIR/usr/bin/fichior"
 #!/bin/bash
 cd /opt/fichior
-node server.js
+node server.js > /dev/null 2>&1 &
+disown
+exit 0
 EOF
 chmod 755 "$BUILD_DIR/usr/bin/fichior"
 
