@@ -35,6 +35,7 @@ Toutes les modifications notables apportées à ce projet sont répertoriées da
 * **Mode Focus (`Ctrl + F`)** : Fenêtre de recherche épurée style Spotlight/Raycast.
 * **Nettoyeur de Doublons** : Panneau listant les fichiers identiques avec outil de suppression sélective.
 * **Renommage par Lots** : Interface interactive appliquant des préfixes, suffixes, corrections de casse et expressions régulières (Regex) en temps réel.
+* **Centre d'Aide & Aide Contextuelle** : Ajout d'un manuel d'aide général (bouton "Aide générale") et de boutons d'aide contextuelle `[?]` à côté de chaque fonctionnalité complexe.
 
 #### 6. Paquet de Distribution Debian (`build_deb.sh`)
 * Écriture d'un script d'assemblage automatisé qui génère un paquet d'installation `.deb` standard avec lanceur d'application et icône personnalisée intégrés.
