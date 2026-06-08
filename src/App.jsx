@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import QuickLook from './components/QuickLook.jsx';
 import RenameModal from './components/RenameModal.jsx';
 import DuplicateFinder from './components/DuplicateFinder.jsx';
+import HelpModal from './components/HelpModal.jsx';
 
 export default function App() {
   // Explorer state
@@ -24,6 +25,10 @@ export default function App() {
   const [showDuplicateFinder, setShowDuplicateFinder] = useState(false);
   const [showWatchdogModal, setShowWatchdogModal] = useState(false);
   const [showSmartFolderModal, setShowSmartFolderModal] = useState(false);
+  
+  // Help Modal
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [helpTab, setHelpTab] = useState('INTRO');
 
   // Basket (Staging area)
   const [basket, setBasket] = useState([]);
@@ -380,11 +385,17 @@ export default function App() {
     }
   };
 
+  // Context Help Trigger
+  const triggerHelp = (tab) => {
+    setHelpTab(tab);
+    setShowHelpModal(true);
+  };
+
   return (
     <div className="app-container">
       {/* 1. SIDEBAR */}
       <aside className="sidebar">
-        <div className="logo">
+        <div className="logo" onClick={() => triggerHelp('INTRO')} style={{ cursor: 'pointer' }} title="Cliquez pour voir l'aide générale">
           <span>📁</span> Fichior
         </div>
 
@@ -421,7 +432,10 @@ export default function App() {
         {/* Smart Folders */}
         <div className="sidebar-section">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="sidebar-title">Dossiers Intelligents</span>
+            <span className="sidebar-title">
+              Dossiers Intelligents
+              <span onClick={() => triggerHelp('SEARCH')} style={{ marginLeft: '6px', cursor: 'pointer', color: 'var(--accent)', fontSize: '10px' }}>[?]</span>
+            </span>
             <button
               onClick={() => setShowSmartFolderModal(true)}
               style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '18px', fontWeight: 'bold' }}
@@ -473,10 +487,15 @@ export default function App() {
           </ul>
         </div>
 
-        <div style={{ marginTop: 'auto', fontSize: '11px', color: 'var(--text-muted)' }}>
-          <div>Raccourcis :</div>
-          <div>[Espace] Aperçu rapide</div>
-          <div>[Ctrl+F] Focus Mode</div>
+        <div style={{ marginTop: 'auto' }}>
+          <button className="btn btn-primary" style={{ width: '100%', marginBottom: '15px' }} onClick={() => triggerHelp('INTRO')}>
+            📖 Aide Générale
+          </button>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+            <div>Raccourcis :</div>
+            <div>[Espace] Aperçu rapide</div>
+            <div>[Ctrl+F] Focus Mode</div>
+          </div>
         </div>
       </aside>
 
@@ -496,6 +515,7 @@ export default function App() {
               }}
               placeholder="Rechercher (ex: 'pdf de plus de 5 Mo' ou 'rapport #urgent')"
             />
+            <span onClick={() => triggerHelp('SEARCH')} style={{ cursor: 'pointer', color: 'var(--text-muted)', fontSize: '14px', marginLeft: '8px' }} title="Aide de recherche">❓</span>
           </div>
 
           <div className="quick-actions-bar">
@@ -653,7 +673,10 @@ export default function App() {
               {/* Versions back panel */}
               {selectedFile.type !== 'directory' && fileVersions.length > 0 && (
                 <div style={{ marginTop: '20px' }}>
-                  <div className="details-meta-label" style={{ marginBottom: '8px' }}>Historique de versions local</div>
+                  <div className="details-meta-label" style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>Historique de versions local</span>
+                    <span onClick={() => triggerHelp('VERSIONING')} style={{ cursor: 'pointer', color: 'var(--accent)', fontSize: '12px' }}>[?]</span>
+                  </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {fileVersions.map((v, idx) => (
                       <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', padding: '6px 10px', borderRadius: '6px', fontSize: '11px' }}>
@@ -674,7 +697,10 @@ export default function App() {
         {basket.length > 0 && (
           <footer className="basket-drawer">
             <div style={{ flexShrink: 0 }}>
-              <strong style={{ display: 'block', fontSize: '14px' }}>Panier Staging ({basket.length})</strong>
+              <strong style={{ display: 'block', fontSize: '14px' }}>
+                Panier Staging ({basket.length})
+                <span onClick={() => triggerHelp('STAGING')} style={{ marginLeft: '6px', cursor: 'pointer', color: 'var(--accent)', fontSize: '12px' }}>[?]</span>
+              </strong>
               <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Fichiers prêts pour action globale</span>
             </div>
             <div className="basket-files-container">
@@ -720,11 +746,22 @@ export default function App() {
         />
       )}
 
+      {/* Help Overlay modal */}
+      {showHelpModal && (
+        <HelpModal
+          defaultTab={helpTab}
+          onClose={() => setShowHelpModal(false)}
+        />
+      )}
+
       {/* Watchdog configurations */}
       {showWatchdogModal && (
         <div className="modal-overlay" onClick={() => setShowWatchdogModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
-            <h2 style={{ marginTop: 0 }}>Règles automatisées Watchdog</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <h2 style={{ margin: 0 }}>Règles automatisées Watchdog</h2>
+              <span onClick={() => triggerHelp('WATCHDOG')} style={{ cursor: 'pointer', color: 'var(--accent)', fontSize: '14px' }} title="Aide Watchdog">❓ Aide</span>
+            </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Configurez des règles automatiques (ex: Déplacer les .pdf de Téléchargements vers Documents et ajouter le tag #à_lire)</p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', margin: '20px 0' }}>
