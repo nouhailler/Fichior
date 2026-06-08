@@ -4,6 +4,23 @@ Toutes les modifications notables apportées à ce projet sont répertoriées da
 
 ---
 
+## [1.1.0] - 2026-06-08
+
+### 🚀 Ajouts & Améliorations UI
+* **Vue en Liste** : Ajout d'une option pour basculer entre la vue Grille et la vue Liste dans l'explorateur de fichiers.
+* **Onboarding** : Nouveau modal d'accueil pour guider les utilisateurs lors de leur première ouverture.
+* **Paramètres** : Ajout d'un panneau de réglages pour personnaliser l'interface et les préférences utilisateur.
+
+### 🛠️ Corrections & Stabilité (Distribution)
+* **Correction du crash .deb** : Migration de la base de données et de l'historique des versions vers `~/.fichior/`. Auparavant, l'application plantait à l'installation car elle tentait d'écrire dans `/opt/fichior/` (réservé à root).
+* **Portabilité** : Suppression des chemins utilisateurs codés en dur au profit de `os.homedir()`.
+* **Amélioration du Build** :
+    * Inclusion automatique du `package-lock.json` dans le paquet Debian.
+    * Ajout d'une vérification de l'existence du dossier `dist/` avant la construction du paquet.
+    * Meilleure gestion des erreurs au démarrage du serveur (logs explicites).
+
+---
+
 ## [1.0.0] - 2026-06-08
 
 ### 🚀 Ajouts Majeurs
