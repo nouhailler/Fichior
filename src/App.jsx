@@ -62,6 +62,7 @@ export default function App() {
 
   // Indexing status message
   const [indexingMsg, setIndexingMsg] = useState('');
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   // Onboarding auto-run check
   useEffect(() => {
@@ -85,7 +86,19 @@ export default function App() {
 
       const res = await fetch(url);
       if (res.ok) {
-        const data = await res.json();
+        let data = await res.json();
+        
+        // If searching, also fetch from Cloud
+        if (searchQuery) {
+          try {
+            const cloudRes = await fetch(`/api/cloud/search?query=${encodeURIComponent(searchQuery)}`);
+            if (cloudRes.ok) {
+              const cloudData = await cloudRes.json();
+              data = [...data, ...cloudData];
+            }
+          } catch (e) { console.error('Cloud search error:', e); }
+        }
+
         setFiles(data);
       }
     } catch (err) {
@@ -443,6 +456,133 @@ export default function App() {
     setShowHelpModal(true);
   };
 
+  // Drag & Drop Handlers
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+
+    // Case 1: System files dropped into the explorer
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const formData = new FormData();
+      for (let i = 0; i < e.dataTransfer.files.length; i++) {
+        formData.append('files', e.dataTransfer.files[i]);
+      }
+
+      setIndexingMsg('Importation des fichiers...');
+      const res = await fetch(`/api/files/upload?dir=${encodeURIComponent(currentDir)}`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (res.ok) {
+        setIndexingMsg('Importation réussie !');
+        fetchFiles();
+        setTimeout(() => setIndexingMsg(''), 3000);
+      } else {
+        setIndexingMsg('Erreur lors de l\'importation.');
+        setTimeout(() => setIndexingMsg(''), 3000);
+      }
+    }
+  };
+
+  // Internal Drag Handlers
+  const handleFileDragStart = (e, file) => {
+    // If dragging a file that isn't in the current selection, select it first
+    let pathsToDrag = multiSelect;
+    if (!multiSelect.includes(file.path)) {
+      pathsToDrag = [file.path];
+      setSelectedFile(file);
+      setMultiSelect(pathsToDrag);
+    }
+    e.dataTransfer.setData('fichior/paths', JSON.stringify(pathsToDrag));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleFolderDrop = async (e, targetFolder) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const data = e.dataTransfer.getData('fichior/paths');
+    if (!data) return;
+
+    const paths = JSON.parse(data);
+    if (paths.includes(targetFolder.path)) {
+      alert("Impossible de déplacer un dossier dans lui-même.");
+      return;
+    }
+
+    const res = await fetch('/api/files/move', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paths, targetDir: targetFolder.path })
+    });
+
+    if (res.ok) {
+      fetchFiles();
+      setMultiSelect([]);
+      setSelectedFile(null);
+    } else {
+      const err = await res.json();
+      alert(`Erreur: ${err.error}`);
+    }
+  };
+
+  const handleTagDrop = async (e, tagName) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const data = e.dataTransfer.getData('fichior/paths');
+    if (!data) return;
+
+    const paths = JSON.parse(data);
+    setIndexingMsg(`Application du tag #${tagName}...`);
+    
+    for (const filePath of paths) {
+      const file = files.find(f => f.path === filePath);
+      const currentTags = file ? file.tags : [];
+      if (!currentTags.includes(tagName)) {
+        await fetch('/api/files/tags', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filePath, tagNames: [...currentTags, tagName] })
+        });
+      }
+    }
+    
+    setIndexingMsg('Tags appliqués !');
+    fetchFiles();
+    setTimeout(() => setIndexingMsg(''), 2000);
+  };
+
+  const handleBasketDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const data = e.dataTransfer.getData('fichior/paths');
+    if (!data) return;
+
+    const paths = JSON.parse(data);
+    const filesToStage = files.filter(f => paths.includes(f.path));
+    const newBasket = [...basket];
+    filesToStage.forEach(f => {
+      if (!newBasket.some(b => b.path === f.path)) {
+        newBasket.push(f);
+      }
+    });
+    setBasket(newBasket);
+    setMultiSelect([]);
+  };
+
   return (
     <div className="app-container">
       {/* 1. SIDEBAR */}
@@ -521,7 +661,11 @@ export default function App() {
           <span className="sidebar-title">Tags</span>
           <ul className="sidebar-menu">
             {allTags.map(tag => (
-              <li key={tag.id}>
+              <li
+                key={tag.id}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => handleTagDrop(e, tag.name)}
+              >
                 <a
                   href="#"
                   className={`sidebar-item ${activeTagFilter === tag.name ? 'active' : ''}`}
@@ -580,7 +724,18 @@ export default function App() {
           </div>
         </header>
 
-        <div className="explorer-pane">
+        <div
+          className={`explorer-pane ${isDraggingOver ? 'dragging-active' : ''}`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          {isDraggingOver && (
+            <div className="drag-overlay">
+              <div className="drag-message">Relâchez pour importer dans ce dossier</div>
+            </div>
+          )}
+
           {/* Files Browser Pane */}
           <div className="file-list-view">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -626,19 +781,27 @@ export default function App() {
                     <div
                       key={idx}
                       className={`file-card ${isSelected ? 'selected' : ''}`}
+                      draggable={true}
+                      onDragStart={(e) => handleFileDragStart(e, file)}
+                      onDragOver={isDir ? (e) => e.preventDefault() : undefined}
+                      onDrop={isDir ? (e) => handleFolderDrop(e, file) : undefined}
                       onClick={(e) => handleFileClick(file, e)}
                       onDoubleClick={() => {
                         if (isDir) {
                           setCurrentDir(file.path);
                           setSelectedFile(null);
                           setMultiSelect([]);
+                        } else if (file.url && file.url !== '#') {
+                          window.open(file.url, '_blank');
                         } else {
                           setSelectedFile(file);
                           setShowQuickLook(true);
                         }
                       }}
                     >
-                      <div className="file-icon">{fileIcon}</div>
+                      <div className="file-icon">
+                        {isDir ? '📁' : file.provider === 'google' ? '🤖' : file.provider === 'dropbox' ? '📦' : file.type.startsWith('image/') ? '🖼️' : file.type.startsWith('audio/') ? '🎵' : file.type.startsWith('video/') ? '🎥' : file.ext === '.pdf' ? '📕' : '📄'}
+                      </div>
                       <div className="file-name" title={file.name}>{file.name}</div>
                       {!isDir && <div className="file-size">{(file.size / (1024 * 1024)).toFixed(2)} Mo</div>}
 
@@ -673,12 +836,18 @@ export default function App() {
                       <tr
                         key={idx}
                         className={`files-list-row ${isSelected ? 'selected' : ''}`}
+                        draggable={true}
+                        onDragStart={(e) => handleFileDragStart(e, file)}
+                        onDragOver={isDir ? (e) => e.preventDefault() : undefined}
+                        onDrop={isDir ? (e) => handleFolderDrop(e, file) : undefined}
                         onClick={(e) => handleFileClick(file, e)}
                         onDoubleClick={() => {
                           if (isDir) {
                             setCurrentDir(file.path);
                             setSelectedFile(null);
                             setMultiSelect([]);
+                          } else if (file.url && file.url !== '#') {
+                            window.open(file.url, '_blank');
                           } else {
                             setSelectedFile(file);
                             setShowQuickLook(true);
@@ -687,7 +856,9 @@ export default function App() {
                       >
                         <td>
                           <div className="files-list-name-col">
-                            <span style={{ fontSize: '18px' }}>{fileIcon}</span>
+                            <span style={{ fontSize: '18px' }}>
+                              {isDir ? '📁' : file.provider === 'google' ? '🤖' : file.provider === 'dropbox' ? '📦' : file.type.startsWith('image/') ? '🖼️' : file.type.startsWith('audio/') ? '🎵' : file.type.startsWith('video/') ? '🎥' : file.ext === '.pdf' ? '📕' : '📄'}
+                            </span>
                             <span title={file.name}>{file.name}</span>
                             {file.tags && file.tags.map((tag, tIdx) => (
                               <span key={tIdx} className="tag-badge" style={{ backgroundColor: file.tagColors[tIdx] || '#3b82f6', fontSize: '9px', marginLeft: '4px' }}>
@@ -803,7 +974,11 @@ export default function App() {
 
         {/* 3. BASKET AREA */}
         {basket.length > 0 && (
-          <footer className="basket-drawer">
+          <footer
+            className="basket-drawer"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleBasketDrop}
+          >
             <div style={{ flexShrink: 0 }}>
               <strong style={{ display: 'block', fontSize: '14px' }}>
                 Panier Staging ({basket.length})

@@ -72,6 +72,14 @@ export async function getDb() {
       add_tags TEXT,
       enabled INTEGER DEFAULT 1
     );
+
+    CREATE TABLE IF NOT EXISTS cloud_accounts (
+      provider TEXT PRIMARY KEY,
+      email TEXT,
+      access_token TEXT,
+      refresh_token TEXT,
+      expiry_date INTEGER
+    );
   `);
 
   // Insert some default tags if they don't exist

@@ -31,36 +31,36 @@ graph TD
 
 ---
 
-## 📊 État Actuel du Développement (v1.1.0)
+## 📊 État Actuel du Développement (v2.0.0 - Native Desktop)
 
-L'application a franchi une étape importante vers la stabilité et la distribution avec la version 1.1.0.
+L'application a franchi des étapes majeures vers une expérience desktop complète et connectée.
 
 ### 🔍 Recherche & Méta (100% Terminés)
-* [x] Compilateur NLP (`natural_language.js`) traduisant le langage naturel (ex: `"PDF > 5 Mo"`) en requêtes SQL.
+* [x] Compilateur NLP (`natural_language.js`) traduisant le langage naturel.
 * [x] Moteur de recherche floue (Fuzzy) & plein texte (Full-text).
 * [x] Dossiers virtuels intelligents (Smart Folders).
-* [x] Extraction automatique des métadonnées EXIF (photos) et ID3 (musique).
+* [x] Extraction automatique des métadonnées EXIF et ID3.
+* [x] **Nouveau (v1.3.0)** : Recherche unifiée incluant **Google Drive** et **Dropbox**.
 
 ### 🏷️ Organisation & Historique (100% Terminés)
-* [x] Système de tags personnalisés avec couleurs éditables depuis l'inspecteur.
+* [x] Système de tags personnalisés avec couleurs éditables.
 * [x] Éditeur de notes et commentaires textuels par fichier.
-* [x] Système de versioning local à 3 niveaux (sauvegardes automatiques avant écrasement).
+* [x] Système de versioning local à 3 niveaux.
 
 ### 🛠️ Productivité & UI (100% Terminés)
-* [x] Panier de staging (Staging Area) pour regrouper les fichiers multi-dossiers.
-* [x] Renommage en lot intelligent avec aperçu direct (gestion préfixes, suffixes, casse, et Regex).
-* [x] Analyseur et nettoyeur de doublons basé sur le hash numérique MD5.
-* [x] **Nouveau** : Vue en Liste (en plus de la vue Grille) pour une gestion plus dense des fichiers.
-* [x] **Nouveau** : Système d'Onboarding pour guider les nouveaux utilisateurs.
-* [x] **Nouveau** : Panneau de Paramètres pour personnaliser l'expérience.
+* [x] Panier de staging (Staging Area).
+* [x] Renommage en lot intelligent avec aperçu direct.
+* [x] Analyseur et nettoyeur de doublons (MD5).
+* [x] Vue en Liste et Vue en Grille.
+* [x] **Nouveau (v1.2.0)** : Support du **Drag & Drop** système (Importation, Déplacement, Tags).
 
 ### 💻 Expérience Utilisateur & Distribution (100% Terminés)
-* [x] Aperçu rapide (Quick Look via la touche `Espace`) pour le code, markdown, audio, vidéo et images.
-* [x] Mode Focus / Spotlight (`Ctrl + F` ou `Ctrl + Espace`) avec fenêtre de recherche flottante.
-* [x] Watchdog : Gestion de règles "Si ... Alors ..." paramétrables depuis l'interface.
-* [x] **Correction** : Résolution du crash du paquet `.deb` lié aux permissions d'écriture dans `/opt`.
-* [x] **Amélioration** : Migration des données applicatives (DB, versions) vers `~/.fichior/` pour une meilleure isolation utilisateur.
-* [x] Création du paquet de déploiement d'application Debian `.deb`.
+* [x] Aperçu rapide (Quick Look via `Espace`).
+* [x] Mode Focus / Spotlight (`Ctrl + F`).
+* [x] Watchdog : Gestion de règles "Si ... Alors ...".
+* [x] **Nouveau (v1.5.0)** : Système de **Plugins** pour parsers personnalisés (`~/.fichior/plugins/`).
+* [x] **Nouveau (v2.0.0)** : Migration vers une **Application Desktop Native** via **Electron**.
+* [x] Création de paquets `.deb` et `AppImage` via `electron-builder`.
 
 ---
 

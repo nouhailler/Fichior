@@ -7,10 +7,58 @@ import mammoth from 'mammoth';
 import musicMetadata from 'music-metadata';
 import exifParser from 'exif-parser';
 import mime from 'mime-types';
+import os from 'os';
+import fsNode from 'fs';
 import { getDb } from './db.js';
+
+const userDataDir = path.join(os.homedir(), '.fichior');
+const pluginsDir = path.join(userDataDir, 'plugins');
 
 // Text file extensions we want to index contents for
 const TEXT_EXTS = ['.txt', '.md', '.json', '.js', '.jsx', '.ts', '.tsx', '.py', '.c', '.cpp', '.h', '.html', '.css', '.sh', '.yml', '.yaml', '.rs', '.go', '.java', '.php'];
+
+// Load dynamic plugins (v1.5.0)
+let plugins = [];
+async function loadPlugins() {
+  try {
+    if (!fsNode.existsSync(pluginsDir)) {
+      await fs.mkdir(pluginsDir, { recursive: true });
+      const samplePlugin = `
+/**
+ * Sample Fichior Plugin
+ * Extracts extra info from .log files
+ */
+export async function parse(filePath, ext) {
+  if (ext === '.log') {
+    return {
+      metadata: { isLogFile: true, parsedAt: Date.now() },
+      content: "Log file detected"
+    };
+  }
+  return null;
+}
+`;
+      await fs.writeFile(path.join(pluginsDir, 'sample.js'), samplePlugin);
+    }
+
+    const files = await fs.readdir(pluginsDir);
+    for (const file of files) {
+      if (file.endsWith('.js')) {
+        try {
+          const pluginPath = path.join(pluginsDir, file);
+          const plugin = await import(\`file://\${pluginPath}\`);
+          if (plugin.parse) {
+            plugins.push(plugin);
+            console.log(\`Plugin loaded: \${file}\`);
+          }
+        } catch (e) { console.error(\`Failed to load plugin \${file}:\`, e); }
+      }
+    }
+  } catch (err) { console.error('Error loading plugins:', err); }
+}
+
+// Initialize plugins
+loadPlugins();
 
 /**
  * Computes MD5 hash of a file for duplicate detection.
@@ -115,11 +163,23 @@ export async function indexFile(filePath) {
     console.log(`Indexing: ${filePath}`);
 
     // Extract text content if applicable
-    const content = await extractText(filePath, ext);
+    let content = await extractText(filePath, ext);
 
     // Extract image/audio metadata
-    const metadataObj = await extractMetadata(filePath, ext);
-    const metadata = metadataObj ? JSON.stringify(metadataObj) : null;
+    let metadataObj = await extractMetadata(filePath, ext) || {};
+
+    // Apply Plugins (v1.5.0)
+    for (const plugin of plugins) {
+      try {
+        const extra = await plugin.parse(filePath, ext);
+        if (extra) {
+          if (extra.content) content = (content || '') + '\n' + extra.content;
+          if (extra.metadata) metadataObj = { ...metadataObj, ...extra.metadata };
+        }
+      } catch (e) { console.error('Plugin execution error:', e); }
+    }
+
+    const metadata = Object.keys(metadataObj).length > 0 ? JSON.stringify(metadataObj) : null;
 
     // Compute hash for duplicate finder
     const hash = await computeFileHash(filePath).catch(() => null);

@@ -62,10 +62,12 @@
 
 ## 🗺️ Roadmap (Prochaines Étapes)
 
-- [ ] **v1.2.0** : Support du Drag & Drop système complet.
-- [ ] **v1.3.0** : Intégration Cloud (Google Drive / Dropbox) pour recherche unifiée.
-- [ ] **v1.5.0** : Système de plugins pour ajouter des parsers personnalisés.
-- [ ] **v2.0.0** : Version Desktop native via Electron ou Tauri.
+- [x] **v1.2.0** : Support du Drag & Drop système complet.
+- [x] **v1.3.0** : Intégration Cloud (Google Drive / Dropbox) pour recherche unifiée.
+- [x] **v1.5.0** : Système de plugins pour ajouter des parsers personnalisés.
+- [x] **v2.0.0** : Version Desktop native via Electron ou Tauri.
+- [ ] **v2.5.0** : Partage de fichiers P2P chiffré.
+- [ ] **v3.0.0** : Assistant IA local (LLM) pour résumer les documents.
 
 ---
 

@@ -8,16 +8,36 @@ import archiver from 'archiver';
 import mime from 'mime-types';
 import os from 'os';
 import { exec } from 'child_process';
+import multer from 'multer';
 
 import { getDb } from './db.js';
 import { indexFile, removeFileFromIndex, indexDirectory, computeFileHash } from './indexer.js';
 import { compileNaturalLanguageQuery } from './natural_language.js';
 import { createVersion, getVersions, restoreVersion } from './versions.js';
 import { initWatchdog, startWatchRule, stopWatchRule } from './watchdog.js';
+import { google } from 'googleapis';
+import { Dropbox } from 'dropbox';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Multer config for file uploads (System Drag & Drop support)
+const storage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const targetDir = resolveHome(req.query.dir || os.homedir());
+    try {
+      await fs.mkdir(targetDir, { recursive: true });
+      cb(null, targetDir);
+    } catch (err) {
+      cb(err);
+    }
+  },
+  filename: (req, file, cb) => {
+    cb(null, file.originalname);
+  }
+});
+const upload = multer({ storage });
 
 app.use(cors());
 app.use(express.json());
@@ -199,6 +219,20 @@ app.get('/api/files/download', async (req, res) => {
     res.setHeader('Content-Length', stat.size);
 
     createReadStream(filePath).pipe(res);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/files/upload - Upload files (from system drag & drop)
+app.post('/api/files/upload', upload.array('files'), async (req, res) => {
+  try {
+    if (req.files) {
+      for (const file of req.files) {
+        await indexFile(file.path);
+      }
+    }
+    res.json({ success: true, count: req.files ? req.files.length : 0 });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -603,6 +637,163 @@ app.get('/api/files/preview-text', async (req, res) => {
     res.send(text);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// 6. CLOUD INTEGRATION API (v1.3.0)
+// ----------------------------------------------------
+
+// Load OAuth config from env or defaults
+const GOOGLE_CONFIG = {
+  clientId: process.env.GOOGLE_CLIENT_ID || 'PLACEHOLDER_GOOGLE_ID',
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'PLACEHOLDER_GOOGLE_SECRET',
+  redirect: process.env.GOOGLE_REDIRECT || 'http://localhost:5000/api/cloud/callback/google'
+};
+
+const DROPBOX_CONFIG = {
+  clientId: process.env.DROPBOX_CLIENT_ID || 'PLACEHOLDER_DROPBOX_ID',
+  clientSecret: process.env.DROPBOX_CLIENT_SECRET || 'PLACEHOLDER_DROPBOX_SECRET',
+  redirect: process.env.DROPBOX_REDIRECT || 'http://localhost:5000/api/cloud/callback/dropbox'
+};
+
+app.get('/api/cloud/status', async (req, res) => {
+  const db = await getDb();
+  try {
+    const accounts = await db.all(`SELECT provider, email FROM cloud_accounts`);
+    res.json(accounts);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/cloud/auth-url/:provider', async (req, res) => {
+  const { provider } = req.params;
+  if (provider === 'google') {
+    const oauth2Client = new google.auth.OAuth2(GOOGLE_CONFIG.clientId, GOOGLE_CONFIG.clientSecret, GOOGLE_CONFIG.redirect);
+    const url = oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: ['https://www.googleapis.com/auth/drive.metadata.readonly']
+    });
+    return res.json({ url });
+  } else if (provider === 'dropbox') {
+    const dbx = new Dropbox({ clientId: DROPBOX_CONFIG.clientId });
+    // Dropbox API v2 uses a slightly different auth flow
+    const url = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_CONFIG.clientId}&response_type=code&redirect_uri=${encodeURIComponent(DROPBOX_CONFIG.redirect)}`;
+    return res.json({ url });
+  }
+  res.status(400).json({ error: 'Unknown provider' });
+});
+
+app.get('/api/cloud/callback/:provider', async (req, res) => {
+  const { provider } = req.params;
+  const { code } = req.query;
+  const db = await getDb();
+
+  try {
+    if (provider === 'google') {
+      const oauth2Client = new google.auth.OAuth2(GOOGLE_CONFIG.clientId, GOOGLE_CONFIG.clientSecret, GOOGLE_CONFIG.redirect);
+      const { tokens } = await oauth2Client.getToken(code);
+      oauth2Client.setCredentials(tokens);
+      
+      const drive = google.drive({ version: 'v3', auth: oauth2Client });
+      const about = await drive.about.get({ fields: 'user(emailAddress)' });
+      const email = about.data.user.emailAddress;
+
+      await db.run(`
+        INSERT OR REPLACE INTO cloud_accounts (provider, email, access_token, refresh_token, expiry_date)
+        VALUES (?, ?, ?, ?, ?)
+      `, ['google', email, tokens.access_token, tokens.refresh_token, tokens.expiry_date]);
+    } else if (provider === 'dropbox') {
+       const dbx = new Dropbox({
+         clientId: DROPBOX_CONFIG.clientId,
+         clientSecret: DROPBOX_CONFIG.clientSecret
+       });
+       const response = await dbx.auth.getAccessTokenFromCode(DROPBOX_CONFIG.redirect, code);
+       const tokens = response.result;
+       // tokens.access_token, tokens.refresh_token, etc.
+       await db.run(`
+         INSERT OR REPLACE INTO cloud_accounts (provider, email, access_token, refresh_token, expiry_date)
+         VALUES (?, ?, ?, ?, ?)
+       `, ['dropbox', 'Linked Account', tokens.access_token, tokens.refresh_token || '', Date.now() + (tokens.expires_in * 1000)]);
+    }
+    res.send('<h1>Compte lié avec succès !</h1><script>setTimeout(() => window.close(), 2000)</script>');
+  } catch (err) {
+    res.status(500).send(`Erreur: ${err.message}`);
+  }
+});
+
+app.delete('/api/cloud/:provider', async (req, res) => {
+  const db = await getDb();
+  try {
+    await db.run(`DELETE FROM cloud_accounts WHERE provider = ?`, [req.params.provider]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Unified Search including Cloud
+app.get('/api/cloud/search', async (req, res) => {
+  const { query } = req.query;
+  if (!query) return res.json([]);
+
+  const db = await getDb();
+  const results = [];
+
+  try {
+    const accounts = await db.all(`SELECT * FROM cloud_accounts`);
+    for (const acc of accounts) {
+      if (acc.provider === 'google') {
+        try {
+          const oauth2Client = new google.auth.OAuth2(GOOGLE_CONFIG.clientId, GOOGLE_CONFIG.clientSecret, GOOGLE_CONFIG.redirect);
+          oauth2Client.setCredentials({
+            access_token: acc.access_token,
+            refresh_token: acc.refresh_token,
+            expiry_date: acc.expiry_date
+          });
+          const drive = google.drive({ version: 'v3', auth: oauth2Client });
+          const resDrive = await drive.files.list({
+            q: `name contains '${query}'`,
+            fields: 'files(id, name, mimeType, size, modifiedTime, webViewLink)'
+          });
+          resDrive.data.files.forEach(f => {
+            results.push({
+              id: f.id,
+              name: f.name,
+              type: f.mimeType,
+              size: parseInt(f.size) || 0,
+              mtime: new Date(f.modifiedTime).getTime(),
+              provider: 'google',
+              url: f.webViewLink,
+              path: `Google Drive: ${f.name}`
+            });
+          });
+        } catch (e) { console.error('GDrive search err:', e); }
+      } else if (acc.provider === 'dropbox') {
+        try {
+          const dbx = new Dropbox({ accessToken: acc.access_token });
+          const resDbx = await dbx.filesSearchV2({ query });
+          resDbx.result.matches.forEach(m => {
+            const f = m.metadata.metadata;
+            results.push({
+              id: f.id,
+              name: f.name,
+              type: f['.tag'] === 'folder' ? 'directory' : 'cloud/file',
+              size: f.size || 0,
+              mtime: new Date(f.server_modified || Date.now()).getTime(),
+              provider: 'dropbox',
+              url: '#', // Dropbox web links require another call
+              path: `Dropbox: ${f.path_display}`
+            });
+          });
+        } catch (e) { console.error('Dropbox search err:', e); }
+      }
+    }
+    res.json(results);
+  } catch (err) {
+    console.error('Cloud search error:', err);
+    res.json([]);
   }
 });
 
